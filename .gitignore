@@ -1,0 +1,10 @@
+#ignore virtual python environment
+venv/
+
+# ignore vscode config files
+.vscode/
+
+# ignore temp sys files
+__pycache__/
+*.pyc
+.DS_Store
