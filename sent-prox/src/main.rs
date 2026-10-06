@@ -2,14 +2,13 @@
 //extract::Json looks for JSON data and converts into usable format upon arrival of request
 use axum::{routing::post, Router, extract::Json, response::IntoResponse};
 //Serde is a Serializer/Deserializer, Value stores as generic data struc
-use serde_json::Value;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ChatReq {
-    prompt: string,
-    model: string,
+    prompt: String,
+    model: String,
 }
 
 //concurrency in Rust is handled using an executor (tokio)
@@ -23,7 +22,7 @@ async fn main() {
 
 
     //
-    let listener = tokio:net::TcpListener::bind("127.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0:3000").await.unwrap();
     println!("Proxy listening on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
 }
