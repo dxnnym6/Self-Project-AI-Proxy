@@ -1,13 +1,13 @@
 //axum is the engine handling HTTP requests, importing routing::post allows proxy to accept data
 //extract::Json looks for JSON data and converts into usable format upon arrival of request
-use axum::{routing::post, Router, extract::Json, response::IntoResponse};
-<<<<<<< HEAD
-//Serde is a Serializer/Deserializer, Value stores as generic data struc
-=======
-//Serde is a Serializer/Deserializer
->>>>>>> e8d7f89f81d0d778572f38179d00f856082c6b0b
-
-use serde::{Deserialize, Serialize};
+use axum::{
+    routing::post,
+    Router,
+    extract::{Json, State},
+    response::IntoResponse
+};
+use serde::{Deserialize, Serialize}; 
+use reqwest::Client;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ChatReq {
@@ -18,20 +18,50 @@ struct ChatReq {
 //concurrency in Rust is handled using an executor (tokio)
 //starts multi-threaded system to run code
 #[tokio::main]
-
 //tells rust that the function will wait for network activity
 //and wont freeze computer waiting for request
 async fn main() { 
-    let app = Router::new().route("/chat", post(handler)); // sends post request @ /chat to the handler
+    //create shared http client when app starts
+    let http_client = Client::new();
+
+    let app = Router::new()
+            .route("/chat", post(handler))
+            .with_state(http_client);
 
 
     //
-    let listener = tokio::net::TcpListener::bind("127.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     println!("Proxy listening on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handler(Json(payload): Json<ChatReq>) -> impl IntoResponse {
-    println!("Received request {:?}", payload);
-    "Request Received" //returns this
+async fn handler(
+    State(client): State<Client>,
+    Json(payload): Json<ChatReq>
+) -> impl IntoResponse {
+    println!("Received request {:?}", payload.model);
+    
+    let ai_url = "http://127.0.0.1::11434/api/generate";
+
+    let response = client
+        .post(ai_url)
+        .json(&payload)
+        .send()
+        .await;
+
+    match response {
+        Ok(res) => {
+            //for now grab raw text and return
+            let body = res.text()
+                .await
+                .unwrap_or_else
+                (|_| "Failed to read AI response".to_string());
+                body
+        },
+        Err(e) => {
+            eprintln!("Failed to reach local AI: {}", e); //for dev in console
+            "Error: Proxy could not reach the local AI endpoint.".to_string() //for user
+        }
+    }
+
 }
