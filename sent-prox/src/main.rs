@@ -1,5 +1,3 @@
-//axum is the engine handling HTTP requests, importing routing::post allows proxy to accept data
-//extract::Json looks for JSON data and converts into usable format upon arrival of request
 use axum::{
     routing::post,
     Router,
@@ -13,13 +11,12 @@ use reqwest::Client;
 struct ChatReq {
     prompt: String,
     model: String,
+    #[serde(default)]
+    stream: bool
 }
 
-//concurrency in Rust is handled using an executor (tokio)
 //starts multi-threaded system to run code
 #[tokio::main]
-//tells rust that the function will wait for network activity
-//and wont freeze computer waiting for request
 async fn main() { 
     //create shared http client when app starts
     let http_client = Client::new();
@@ -29,7 +26,6 @@ async fn main() {
             .with_state(http_client);
 
 
-    //
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
     println!("Proxy listening on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
@@ -41,7 +37,9 @@ async fn handler(
 ) -> impl IntoResponse {
     println!("Received request {:?}", payload.model);
     
-    let ai_url = "http://127.0.0.1::11434/api/generate";
+    //read backend url from environment to remain portable across scenarios
+    let ai_url = std::env::var("BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1::11434/api/generate".to_string());
+    //fall back to default if variable isn't set
 
     let response = client
         .post(ai_url)
@@ -63,5 +61,4 @@ async fn handler(
             "Error: Proxy could not reach the local AI endpoint.".to_string() //for user
         }
     }
-
 }
