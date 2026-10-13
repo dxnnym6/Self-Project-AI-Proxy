@@ -38,7 +38,7 @@ async fn handler(
     println!("Received request {:?}", payload.model);
     
     //read backend url from environment to remain portable across scenarios
-    let ai_url = std::env::var("BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1::11434/api/generate".to_string());
+    let ai_url = std::env::var("BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1:11434/api/generate".to_string());
     //fall back to default if variable isn't set
 
     let response = client
