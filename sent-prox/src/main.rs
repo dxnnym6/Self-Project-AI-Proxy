@@ -37,6 +37,42 @@ async fn handler(
 ) -> impl IntoResponse {
     println!("Received request {:?}", payload.model);
     
+
+    //call python sidecar script first
+    let side_url = "http://localhost:8000/inspect";
+
+    let inspect_payload = serde_json::json!({
+        "prompt": payload.prompt
+    });
+
+    match client.post(side_url).json(&inspect_payload).send().await {
+        Ok(res) => {
+            if let Ok(verdict) = res.json::<serde_json::Value>().await {
+                let is_safe = verdict["safe"].as_bool().unwrap_or(true);
+                if !is_safe {
+                    let reason = verdict["reason"].as_str().unwrap_or("Unknown threat");
+                    println!("[SECURITY BLOCK] Python sidecar blocked request: {}", reason);
+
+                    return (
+                        axum::http::StatusCode::FORBIDDEN,
+                        format!("Request blocked by security filter: {}", reason),
+                    ).into_response();
+                }
+            }
+        }
+
+        Err(e) => {
+            
+            eprintln!("Warning: Could not reach python sidecar: {}. Rejecting prompt.", e);
+                return (
+                    axum::http::StatusCode::FORBIDDEN,
+                    format!("Error: Security guardrail is offline. Request blocked for safety."),
+                ).into_response();
+        }
+    }
+
+
+
     //read backend url from environment to remain portable across scenarios
     let ai_url = std::env::var("BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1:11434/api/generate".to_string());
     //fall back to default if variable isn't set
@@ -54,11 +90,11 @@ async fn handler(
                 .await
                 .unwrap_or_else
                 (|_| "Failed to read AI response".to_string());
-                body
+                body.into_response()
         },
         Err(e) => {
             eprintln!("Failed to reach local AI: {}", e); //for dev in console
-            "Error: Proxy could not reach the local AI endpoint.".to_string() //for user
+            "Error: Proxy could not reach the local AI endpoint.".into_response() //for user
         }
     }
 }
